@@ -1,0 +1,15 @@
+[package]
+name = "arkworks"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ark-std = "^0.5.0-alpha.0"
+ark-relations = "^0.5.0-alpha.0"
+ark-groth16 = "^0.5.0-alpha.0"
+ark-ff = "^0.5.0-alpha.0"
+ark-bn254 = "^0.5.0-alpha.0"
+ark-r1cs-std = "^0.5.0-alpha.0"
+ark-snark = "^0.5.0-alpha.0"
+rand_chacha = "^0.3.1"
+ark-crypto-primitives = { version = "^0.5.0-alpha.0", features = ["r1cs"] }
