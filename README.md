@@ -1,7 +1,7 @@
 # mastermind examples
 
 Implementations of the [Mastermind](https://en.wikipedia.org/wiki/Mastermind_(board_game))
-game in various zero knowledge circuit languages/
+game in various zero knowledge circuit languages/frameworks.
 
 ## Disclaimer
 
