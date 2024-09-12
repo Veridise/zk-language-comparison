@@ -33,14 +33,14 @@ template ValidateCode() {
         total += eq[i].out;
     }
     correct_pegs <== total;
-    
+
     // Tallying the partial count
     component allEq[4][4];
     component eqMux[4][4];
     component z[4];
     component notZ[4];
     component sel[4][4];
-    
+
     var partialTotal;
     for (var i = 0; i < 4; i++) {
 	    var totalPartial = 0;
@@ -49,20 +49,20 @@ template ValidateCode() {
 		    allEq[i][j] = IsEqual();
 		    allEq[i][j].in[0] <== pegs[i];
 		    allEq[i][j].in[1] <== guess[j];
-	    
+
 		    eqMux[i][j] = Mux1();
 		    eqMux[i][j].c[0] <== allEq[i][j].out;
 		    eqMux[i][j].c[1] <== 0;
-		    
+
 		    sel[i][j] = AND();
 		    sel[i][j].a <== (j != i); // fine b/c of compile time unrolling
 		    sel[i][j].b <== eq[i].out;
-		    
-		    eqMux[i][j].s <== sel[i][j].out; 
-		    
-			  totalPartial += eqMux[i][j].out;
+
+		    eqMux[i][j].s <== sel[i][j].out;
+
+			totalPartial += eqMux[i][j].out;
 	    }
-	    
+
 	    // If the totalPartial >= 1, then we emit one "partially correct" guess
 	    z[i] = IsZero();
 	    z[i].in <== totalPartial;

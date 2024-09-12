@@ -37,9 +37,8 @@ pub fn get_poseidon_config() -> PoseidonConfig<Fr> {
     config
 }
 
-
 /**
- * Define the mastermind circuit
+ * Define the mastermind circuit.
  *
  * NPEGS: Number of peg colors (use 6 for a standard game)
  * SZ: Size of the code (use 4 for a standard game)
@@ -63,6 +62,10 @@ pub struct MastermindCircuit<const NPEGS: usize, const SZ: usize> {
     pub guess: [Option<u64>; SZ],
 }
 
+/**
+ * Asserts that the pegs are legal by ensuring they are within the NPEGS bound:
+ * in other words, check if each peg is a valid "color".
+ */
 fn assert_pegs_are_legal<const NPEGS: usize>(
     pegs: &Vec<UInt64<Fr>>) -> Result<(), SynthesisError>
 {

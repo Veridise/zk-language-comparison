@@ -1,4 +1,4 @@
-# ZK Mastermind: Halo2
+# ZK Mastermind: Noir
 
 A Halo2 implementation of the initialization and validation of a mastermind game. This uses the halo2-scaffolding to remove the need for some of the boilerplate.
 
