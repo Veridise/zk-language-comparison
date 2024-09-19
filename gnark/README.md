@@ -1,4 +1,4 @@
-# ZK Mastermind: Gnark
+# Mastermind (Gnark)
 
 ## Code Structure
 

@@ -1,7 +1,5 @@
 use clap::Parser;
-use halo2_base::gates::circuit::builder::BaseCircuitBuilder;
-use halo2_base::gates::{GateChip, GateInstructions, RangeInstructions};
-use halo2_base::utils::{BigPrimeField, ScalarField};
+use halo2_base::{gates::circuit::builder::BaseCircuitBuilder, utils::BigPrimeField};
 use halo2_base::AssignedValue;
 #[allow(unused_imports)]
 use halo2_base::{
@@ -13,9 +11,7 @@ use halo2_scaffold::scaffold::run;
 use serde::{Deserialize, Serialize};
 
 mod common;
-use common::hash_pegs;
-
-const MAX_COLOR: usize = 5;
+use common::{assert_pegs_in_range, hash_pegs};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CircuitInput {
@@ -36,9 +32,8 @@ fn codebreaker_init<F: BigPrimeField>(
         .pegs
         .map(|p| ctx.load_witness(F::from_str_vartime(&p).expect("Error deserializing peg")));
 
-    for i in 0..4 {
-        range_chip.range_check(ctx, pegs[i], 3); //TODO: This means there are 8 colors
-    }
+    // Ensure pegs are in the range.
+    assert_pegs_in_range::<F>(&range_chip, ctx, pegs);
 
     let hash = hash_pegs(ctx, nonce, pegs);
     make_public.push(hash);

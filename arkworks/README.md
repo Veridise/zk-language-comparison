@@ -6,7 +6,7 @@
 and associated constraints.
 - `src/main.rs`: Contains the setup and proving of the mastermind circuit on a test input.
 
-## Running the Test
+## Running the Tests
 
 ### Prerequisites
 

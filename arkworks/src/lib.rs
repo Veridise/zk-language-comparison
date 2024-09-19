@@ -1,12 +1,16 @@
 use ark_bn254::Fr;
+use ark_crypto_primitives::sponge::poseidon::constraints::*;
+use ark_crypto_primitives::sponge::{constraints::CryptographicSpongeVar, poseidon::*};
 use ark_ff::fields::PrimeField;
-use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
+use ark_r1cs_std::cmp::*;
 use ark_r1cs_std::prelude::*;
 use ark_r1cs_std::uint64::UInt64;
-use ark_r1cs_std::cmp::*;
-use ark_crypto_primitives::sponge::{constraints::CryptographicSpongeVar, poseidon::*};
-use ark_crypto_primitives::sponge::poseidon::constraints::*;
+use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
 
+/**
+ * Create a PoseidonConfig. For our purposes, the exact config doesn't matter
+ * too much, so long as it produces a valid hash.
+ */
 pub fn get_poseidon_config() -> PoseidonConfig<Fr> {
     // (rate, alpha, full_rounds, partial_rounds, skip_matrices)
     // PoseidonDefaultConfigEntry::new(2, 17, 8, 31, 0),
@@ -66,9 +70,7 @@ pub struct MastermindCircuit<const NPEGS: usize, const SZ: usize> {
  * Asserts that the pegs are legal by ensuring they are within the NPEGS bound:
  * in other words, check if each peg is a valid "color".
  */
-fn assert_pegs_are_legal<const NPEGS: usize>(
-    pegs: &Vec<UInt64<Fr>>) -> Result<(), SynthesisError>
-{
+fn assert_pegs_are_legal<const NPEGS: usize>(pegs: &Vec<UInt64<Fr>>) -> Result<(), SynthesisError> {
     let npegs_const = UInt64::<Fr>::constant(NPEGS.try_into().unwrap());
     let zero = UInt64::<Fr>::constant(0);
 
@@ -83,12 +85,16 @@ fn assert_pegs_are_legal<const NPEGS: usize>(
     Ok(())
 }
 
+/**
+ * Assert that the given code is valid. This checks that the pegs are legal and
+ * that the provided hash is equal to the hash of the nonce and code pegs.
+ */
 fn assert_code_is_valid<const NPEGS: usize>(
     cs: ConstraintSystemRef<Fr>,
     code: &Vec<UInt64<Fr>>,
     nonce: &UInt64<Fr>,
-    hash: &UInt64<Fr>) -> Result<(), SynthesisError>
-{
+    hash: &UInt64<Fr>,
+) -> Result<(), SynthesisError> {
     // The code must be a valid assignment.
     assert_pegs_are_legal::<NPEGS>(code)?;
 
@@ -111,72 +117,123 @@ fn assert_code_is_valid<const NPEGS: usize>(
     Ok(())
 }
 
-fn assert_guess_is_valid<const NPEGS: usize>(
-    guess: &Vec<UInt64<Fr>>) -> Result<(), SynthesisError>
-{
-    assert_pegs_are_legal::<NPEGS>(guess)
-}
-
-fn assert_response_is_valid(
+/**
+ * Compute the number of correct guesses.
+ * The number of fully correct guesses ("black pegs") is:
+ *      sum code[i] == guess[i] for i in range 0..number of pegs
+ */
+fn count_correct_guesses(
     code: &Vec<UInt64<Fr>>,
     guess: &Vec<UInt64<Fr>>,
-    num_partial_correct: &UInt64<Fr>,
-    num_fully_correct: &UInt64<Fr>) -> Result<(), SynthesisError>
-{
-    // Assume we've already checked the code and guess for legality.
-    // First, check the number of fully correct guesses. This is where
-    //      code[i] = guess[i]
+) -> Result<UInt64<Fr>, SynthesisError> {
     let mut sum_fully_correct = UInt64::<Fr>::constant(0);
     for i in 0..code.len() {
         let is_correct = code[i].is_eq(&guess[i])?;
         // let is_correct_64 = UInt64::<Fr>::from_bits_le(&vec![is_correct]);
-        let is_correct_64 = is_correct.select(&UInt64::<Fr>::constant(1), &UInt64::<Fr>::constant(0))?;
+        let is_correct_64 =
+            is_correct.select(&UInt64::<Fr>::constant(1), &UInt64::<Fr>::constant(0))?;
         sum_fully_correct.wrapping_add_in_place(&is_correct_64);
     }
+    Ok(sum_fully_correct)
+}
+
+/**
+ * Count the number of pegs of the given color present in the code.
+ */
+fn count_color(peg: &UInt64<Fr>, code: &Vec<UInt64<Fr>>) -> Result<UInt64<Fr>, SynthesisError> {
+    let mut count = UInt64::<Fr>::constant(0);
+    for i in 0..code.len() {
+        let is_same_color = code[i].is_eq(peg)?;
+        let is_same_color_64 =
+            is_same_color.select(&UInt64::<Fr>::constant(1), &UInt64::<Fr>::constant(0))?;
+        count.wrapping_add_in_place(&is_same_color_64);
+    }
+    Ok(count)
+}
+
+/**
+ * Find the minimum between a and b.
+ */
+fn min(a: &UInt64<Fr>, b: &UInt64<Fr>) -> Result<UInt64<Fr>, SynthesisError> {
+    a.is_lt(b)?.select(a, b)
+}
+
+/**
+ * Compute the number of partially correct guesses.
+ * The number of partially correct guesses ("white pegs") is:
+ *      (sum min(count(i, code), count(i, guess)) i in range 0..peg colors) - correct pegs
+ * In essence, for each color, count the number of pegs of that color in the guess and code. Find the minimum of those two numbers.
+ * Then add this up across all colors, subtracting the overlap that are fully correct pegs.
+ */
+fn count_partial_guesses<const NPEGS: usize>(
+    code: &Vec<UInt64<Fr>>,
+    guess: &Vec<UInt64<Fr>>,
+    fully_correct: &UInt64<Fr>,
+) -> Result<UInt64<Fr>, SynthesisError> {
+    let mut partial_sum = UInt64::<Fr>::constant(0);
+    for p in 0..NPEGS {
+        let peg = UInt64::<Fr>::constant(p as u64);
+        let guess_count = count_color(&peg, guess)?;
+        let code_count = count_color(&peg, code)?;
+        let color_min = min(&guess_count, &code_count)?;
+        partial_sum.wrapping_add_in_place(&color_min);
+    }
+    let fp_diff = partial_sum.to_fp()? - fully_correct.to_fp()?;
+    let diff = UInt64::<Fr>::from_fp(&fp_diff)?.0;
+    return Ok(diff);
+}
+
+/**
+ * Assert that the response is valid, assuming that the code and guess are already
+ * valid. This checks that, given the code and the guess, that the provided feedback
+ * (number of black and white pegs, i.e. number of fully correct and partially correct
+ * guesses) is correct.
+ */
+fn assert_response_is_valid<const NPEGS: usize>(
+    code: &Vec<UInt64<Fr>>,
+    guess: &Vec<UInt64<Fr>>,
+    num_partial_correct: &UInt64<Fr>,
+    num_fully_correct: &UInt64<Fr>,
+) -> Result<(), SynthesisError> {
+    // Assume we've already checked the code and guess for legality.
+    let sum_fully_correct = count_correct_guesses(code, guess)?;
     sum_fully_correct.enforce_equal(num_fully_correct)?;
 
-    // Second, check the number of partially correct guesses. This is where
-    //          code[i] = guess[j]  for i != j
-    //      and code[i] != guess[i]
-
-    // Selectors for if the guess peg is already "assigned" a partial guess.
-    // The number of partial guesses is then the minimum of the sum of both these
-    // vectors.
-    let mut code_already_partial_eq: Vec<_> = (0..code.len()).map(|_| UInt64::<Fr>::constant(0)).collect();
-    let mut guess_already_partial_eq: Vec<_> = (0..guess.len()).map(|_| UInt64::<Fr>::constant(0)).collect();
-    for i in 0..code.len() {
-        for j in (0..guess.len()).filter(|x| *x != i) {
-            let cond = code[i].is_eq(&guess[j])?;
-            code_already_partial_eq[i] = cond.select(&UInt64::<Fr>::constant(1), &code_already_partial_eq[i])?;
-            guess_already_partial_eq[j] = cond.select(&UInt64::<Fr>::constant(1), &guess_already_partial_eq[j])?;
-        }
-    }
-
-    let sum_code_partial = UInt64::<Fr>::saturating_add_many(&code_already_partial_eq)?;
-    let sum_guess_partial = UInt64::<Fr>::saturating_add_many(&guess_already_partial_eq)?;
-
-    let computed_partial_correct = sum_code_partial.is_lt(&sum_guess_partial)?.select(&sum_code_partial, &sum_guess_partial)?;
+    let computed_partial_correct = count_partial_guesses::<NPEGS>(code, guess, &num_fully_correct)?;
     computed_partial_correct.enforce_equal(num_partial_correct)?;
 
     Ok(())
 }
 
-impl<const NPEGS: usize, const SZ: usize> ConstraintSynthesizer<Fr> for MastermindCircuit<NPEGS, SZ> {
+/**
+ * This is the core logic of the mastermind circuit.
+ */
+impl<const NPEGS: usize, const SZ: usize> ConstraintSynthesizer<Fr>
+    for MastermindCircuit<NPEGS, SZ>
+{
     fn generate_constraints(self, cs: ConstraintSystemRef<Fr>) -> Result<(), SynthesisError> {
         // Allocate the variables
         // - private inputs are created via "new witness"
         let uint64_input_private = |opt: &Option<u64>| {
             UInt64::<Fr>::new_witness(cs.clone(), || opt.ok_or(SynthesisError::AssignmentMissing))
         };
-        let uint64_arr_input_private = |arr: &[Option<u64>; SZ] | {
-            arr.iter().map(uint64_input_private).collect::<Vec<Result<_, _>>>().into_iter().collect::<Result<_, _>>()
+        let uint64_arr_input_private = |arr: &[Option<u64>; SZ]| {
+            arr.iter()
+                .map(uint64_input_private)
+                .collect::<Vec<Result<_, _>>>()
+                .into_iter()
+                .collect::<Result<_, _>>()
         };
         // - public inputs are created via "new input"
         let uint64_input_public = |opt: &Option<u64>| {
             UInt64::<Fr>::new_input(cs.clone(), || opt.ok_or(SynthesisError::AssignmentMissing))
         };
-        let uint64_arr_input_public = |arr: &[Option<u64>; SZ] | {
-            arr.iter().map(uint64_input_public).collect::<Vec<Result<_, _>>>().into_iter().collect::<Result<_, _>>()
+        let uint64_arr_input_public = |arr: &[Option<u64>; SZ]| {
+            arr.iter()
+                .map(uint64_input_public)
+                .collect::<Vec<Result<_, _>>>()
+                .into_iter()
+                .collect::<Result<_, _>>()
         };
 
         // - Game info
@@ -192,9 +249,9 @@ impl<const NPEGS: usize, const SZ: usize> ConstraintSynthesizer<Fr> for Mastermi
         // Make sure the code is valid
         assert_code_is_valid::<NPEGS>(cs, &code, &nonce, &hash)?;
         // Check that the guess is valid
-        assert_guess_is_valid::<NPEGS>(&guess)?;
+        assert_pegs_are_legal::<NPEGS>(&guess)?;
         // Check that the response is valid
-        assert_response_is_valid(&code, &guess, &num_partial_correct, &num_fully_correct)?;
+        assert_response_is_valid::<NPEGS>(&code, &guess, &num_partial_correct, &num_fully_correct)?;
         Ok(())
     }
 }

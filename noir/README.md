@@ -1,26 +1,19 @@
-# ZK Mastermind: Noir
-
-A Halo2 implementation of the initialization and validation of a mastermind game. This uses the halo2-scaffolding to remove the need for some of the boilerplate.
+# Mastermind (Noir)
 
 ## Code Structure
 
-The relevant code is in the `examples/` directory.
-This is so that the commands can be easily ran with the `--example` flag of `cargo run`.
+- `src/main.nr`: Contains the test cases for the mastermind circuit.
+- `src/circuit.nr`: Contains the mastermind circuit logic.
 
 ## Running the Examples
 
 ### Prerequisites
 
-Install cargo and rust.
+[Install Nargo.](https://noir-lang.org/docs/getting_started/installation/)
 
 ### Command Line Instructions
 
-To run the init:
+To run the tests
 ```shell
-LOOKUP_BITS=3 cargo run --example init -- --name init -k 6 mock
-```
-
-To run the validation:
-```shell
-LOOKUP_BITS=3 cargo run --example validate -- --name validate -k 6 mock
+nargo test
 ```

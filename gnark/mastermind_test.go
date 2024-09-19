@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"math/rand"
 	"reflect"
-	"slices"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc"
@@ -78,10 +77,25 @@ func ComputeAnswer(answer, guess UintCode) (numCorrect, numPartial uint64) {
 	for i := 0; i < len(answer); i++ {
 		if answer[i] == guess[i] {
 			numCorrect++
-		} else if slices.Contains(answer[:], guess[i]) {
-			numPartial++
 		}
 	}
+
+	count := func(color uint64, code UintCode) uint64 {
+		var c uint64 = 0
+		for i := 0; i < len(code); i++ {
+			if code[i] == color {
+				c++
+			}
+		}
+		return c
+	}
+
+	var minSum uint64 = 0
+	var c uint64
+	for c = 0; c < NUM_PEG_CHOICES; c++ {
+		minSum += min(count(c, answer), count(c, guess))
+	}
+	numPartial = minSum - numCorrect
 	return
 }
 

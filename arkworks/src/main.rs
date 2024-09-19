@@ -1,12 +1,12 @@
 use ark_bn254::Bn254;
 use ark_crypto_primitives::sponge::CryptographicSponge;
-use ark_snark::SNARK;
-use ark_snark::CircuitSpecificSetupSNARK;
 use ark_groth16::Groth16;
+use ark_snark::CircuitSpecificSetupSNARK;
+use ark_snark::SNARK;
+use ark_std::rand::SeedableRng;
 use arkworks::get_poseidon_config;
 use arkworks::MastermindCircuit;
 use rand_chacha::ChaCha20Rng;
-use ark_std::rand::SeedableRng;
 
 use ark_bn254::Fr;
 use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
@@ -33,16 +33,28 @@ fn compute_poseidon_hash(inputs: &[u64]) -> u64 {
     u64::from_le_bytes(bytes)
 }
 
-fn fill_in_hash(circuit: &mut MastermindCircuit::<6, 4>) {
+/**
+ * Utility for setting the hash for test inputs. Assuming that the nonce
+ * and the code are set, update the hash so that the hash is the hash of the
+ * nonce and code.
+ */
+fn fill_in_hash(circuit: &mut MastermindCircuit<6, 4>) {
     let inputs = vec![
         circuit.nonce.unwrap(),
-        circuit.code[0].unwrap(), circuit.code[1].unwrap(), circuit.code[2].unwrap(), circuit.code[3].unwrap(),
+        circuit.code[0].unwrap(),
+        circuit.code[1].unwrap(),
+        circuit.code[2].unwrap(),
+        circuit.code[3].unwrap(),
     ];
     let hash_u64 = compute_poseidon_hash(&inputs);
     circuit.hash = Some(hash_u64);
 }
 
-fn validate(rng: &mut ChaCha20Rng, circuit: &MastermindCircuit::<6, 4>) {
+/**
+ * Verify the circuit. Checks the constrains and outputs the proof if so. If
+ * the constraints are violated, the prove function will fail.
+ */
+fn validate(rng: &mut ChaCha20Rng, circuit: &MastermindCircuit<6, 4>) {
     // Create the parameters.
     let params = Groth16::<Bn254>::setup(circuit.clone(), rng).unwrap();
 

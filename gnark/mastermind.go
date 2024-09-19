@@ -94,6 +94,54 @@ type CodemakerResponse struct {
 }
 
 /*
+Compute the number of correct pegs (black pegs).
+*/
+func ComputeCorrectPegs(api frontend.API, code *CodemakerCode, guess *CodebreakerGuess) frontend.Variable {
+	var numCorrect frontend.Variable = 0
+	for i := 0; i < CODE_SIZE; i++ {
+		isEq := api.IsZero(api.Cmp(code.Pegs[i], guess.Pegs[i]))
+		numCorrect = api.Add(numCorrect, isEq)
+	}
+	return numCorrect
+}
+
+func Min(api frontend.API, a, b frontend.Variable) frontend.Variable {
+	cmp := api.Cmp(a, b)
+	aLessThanB := api.IsZero(api.Add(cmp, 1))
+	return api.Select(aLessThanB, a, b)
+}
+
+/*
+Count the number of times the color appears in the code.
+*/
+func CountColor(api frontend.API, code *Code, color frontend.Variable) frontend.Variable {
+	var count frontend.Variable = 0
+	for i := 0; i < CODE_SIZE; i++ {
+		isEq := api.IsZero(api.Cmp(code[i], color))
+		count = api.Add(count, isEq)
+	}
+	return count
+}
+
+/*
+Compute the number of partial guesses (white pegs) based on the minimum formula:
+  - For each color, compute the minimum of the number of that color peg in the
+    codebreaker guess and the codemaker code.
+  - Compute the sum of these minimums across all colors, then subtract the
+    number of correct guesses (black pegs) computed earlier.
+*/
+func ComputePartialPegs(api frontend.API, code *CodemakerCode, guess *CodebreakerGuess, numCorrect frontend.Variable) frontend.Variable {
+	var minSum frontend.Variable = 0
+	for i := 0; i < NUM_PEG_CHOICES; i++ {
+		codeCount := CountColor(api, &code.Pegs, i)
+		guessCount := CountColor(api, &guess.Pegs, i)
+		countMin := Min(api, codeCount, guessCount)
+		minSum = api.Add(minSum, countMin)
+	}
+	return api.Sub(minSum, numCorrect)
+}
+
+/*
 Assert that the codemaker response is a valid response.
 A response is valid if the number of outputs (fully correct and partially correct)
 */
@@ -103,25 +151,8 @@ func (c *CodemakerResponse) AssertIsValid(api frontend.API, code *CodemakerCode,
 	// computation.
 
 	// Computing the number of correct and partial guesses from the codebreaker guess
-	var numCorrect, numPartial frontend.Variable = 0, 0
-
-	for i := 0; i < CODE_SIZE; i++ {
-		isEq := api.IsZero(api.Cmp(code.Pegs[i], guess.Pegs[i]))
-		numCorrect = api.Add(numCorrect, isEq)
-
-		var wrongPosEq frontend.Variable = 0
-		for j := 0; j < CODE_SIZE; j++ {
-			if j == i {
-				continue
-			}
-			jIsEq := api.IsZero(api.Cmp(code.Pegs[j], guess.Pegs[i]))
-			wrongPosEq = api.Or(wrongPosEq, jIsEq)
-		}
-		isNotCorrect := api.Xor(isEq, 1)
-		// We don't report a partial correct if the peg is fully correct.
-		isPartial := api.And(isNotCorrect, wrongPosEq)
-		numPartial = api.Add(numPartial, isPartial)
-	}
+	numCorrect := ComputeCorrectPegs(api, code, guess)
+	numPartial := ComputePartialPegs(api, code, guess, numCorrect)
 
 	api.AssertIsEqual(c.NumCorrect, numCorrect)
 	api.AssertIsEqual(c.NumPartial, numPartial)

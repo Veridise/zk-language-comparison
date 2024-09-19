@@ -1,8 +1,7 @@
 use clap::Parser;
 use halo2_base::gates::circuit::builder::BaseCircuitBuilder;
 use halo2_base::gates::{GateChip, GateInstructions, RangeInstructions};
-use halo2_base::halo2_proofs::dev::metadata::Gate;
-use halo2_base::utils::{BigPrimeField, ScalarField};
+use halo2_base::utils::BigPrimeField;
 use halo2_base::AssignedValue;
 #[allow(unused_imports)]
 use halo2_base::{
@@ -14,8 +13,7 @@ use halo2_scaffold::scaffold::run;
 use serde::{Deserialize, Serialize};
 
 mod common;
-use common::hash_pegs;
-use snark_verifier_sdk::snark_verifier::loader::halo2::IntegerInstructions;
+use common::{assert_pegs_in_range, hash_pegs};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CircuitInput {
@@ -30,7 +28,9 @@ fn codebreaker_validate<F: BigPrimeField>(
     input: CircuitInput,
     make_public: &mut Vec<AssignedValue<F>>,
 ) {
+    let range_chip = builder.range_chip();
     let ctx = builder.main(0);
+
     let nonce =
         ctx.load_witness(F::from_str_vartime(&input.nonce).expect("Error deserializing nonce"));
     let pegs: [AssignedValue<F>; 4] = input
@@ -41,6 +41,10 @@ fn codebreaker_validate<F: BigPrimeField>(
     let guesses: [AssignedValue<F>; 4] = input
         .guess
         .map(|g| ctx.load_witness(F::from_str_vartime(&g).expect("Error deserializing peg")));
+
+    // Constrain that the pegs and guesses are within range
+    assert_pegs_in_range::<F>(&range_chip, ctx, pegs);
+    assert_pegs_in_range::<F>(&range_chip, ctx, guesses);
 
     // Constrain that the correct game information has been loaded
     let hash_calc = hash_pegs(ctx, nonce, pegs);
@@ -58,27 +62,33 @@ fn codebreaker_validate<F: BigPrimeField>(
     let correct_guesses = GateChip::<F>::default().sum(ctx, equalities);
 
     // Tally the number of partial guesses
-    let partial_equalities: Vec<AssignedValue<F>> = guesses
-        .iter()
-        .enumerate()
-        .map(|(i, guess)| {
-            let partial_eqs: Vec<AssignedValue<F>> = (0..4)
-                //.filter(|j| &i != j)
-                .map(|j| GateChip::<F>::default().is_equal(ctx, *guess, pegs[j]))
-                .collect();
+    let min_val = |ctx: &mut Context<F>, a: AssignedValue<F>, b: AssignedValue<F>| -> AssignedValue<F> {
+        let a_less_than_b = range_chip.is_less_than(ctx, a, b, 4);
+        GateChip::<F>::default().select(ctx, a, b, a_less_than_b)
+    };
 
-            let partial_sum = GateChip::<F>::default().sum(ctx, partial_eqs);
-            let partial_sum_is_zero = GateChip::<F>::default().is_zero(ctx, partial_sum);
-            GateChip::<F>::default().not(ctx, partial_sum_is_zero)
+    let count_color = |ctx: &mut Context<F>, pegs: [AssignedValue<F>; 4], color: AssignedValue<F>| -> AssignedValue<F> {
+        let eq_vec: Vec<AssignedValue<F>> = pegs.iter()
+            .map(|v| GateChip::<F>::default().is_equal(ctx, *v, color))
+            .collect();
+        GateChip::<F>::default().sum(ctx, eq_vec)
+    };
+
+    let min_vals: Vec<AssignedValue<F>> = (0u64..6u64)
+        .map(|c| {
+            let color = ctx.load_constant(c.into());
+            let guess_color = count_color(ctx, guesses, color);
+            let code_color = count_color(ctx, pegs, color);
+            min_val(ctx, guess_color, code_color)
         })
         .collect();
-    let partial_guess_total = GateChip::<F>::default().sum(ctx, partial_equalities);
+
+    let min_sum = GateChip::<F>::default().sum(ctx, min_vals);
     let partial_guesses = GateInstructions::sub(
         &GateChip::<F>::default(),
         ctx,
-        partial_guess_total,
-        correct_guesses,
-    );
+        min_sum,
+        correct_guesses);
 
     // Make the values public
     make_public.push(correct_guesses);

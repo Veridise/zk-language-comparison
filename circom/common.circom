@@ -1,15 +1,34 @@
 pragma circom 2.1.8;
 
+include "./node_modules/circomlib/circuits/bitify.circom";
+include "./node_modules/circomlib/circuits/comparators.circom";
+include "./node_modules/circomlib/circuits/compconstant.circom";
+include "./node_modules/circomlib/circuits/mux1.circom";
 include "./node_modules/circomlib/circuits/poseidon.circom";
 
-template GenerateCodeHash() {
-  signal input nonce;
-  signal input pegs[4];
-  signal output out;
+/*
+  Assumes the range of a and b have already been checked.
+*/
+template Minimum() {
+  signal input a, b;
 
-  component poseidon = Poseidon(5);
-  poseidon.inputs[0] <== nonce;
+  signal aGtB <== GreaterThan(252)([a, b]);
 
-  for (var i = 0; i < 4; i++) poseidon.inputs[i+1] <== pegs[i];
-  out <== poseidon.out;
+  signal output min <== Mux1()([a, b], aGtB); // Will select a if aGtB == 0, b otherwse.
+}
+
+/*
+  Count the number of instances of constant C in the input array of size N.
+*/
+template CountConst(N, C) {
+  signal input inp[N];
+  signal output count;
+
+  signal isEq[N];
+  var sum = 0;
+  for (var i = 0; i < N; i++) {
+    isEq[i] <== IsEqual()([C, inp[i]]);
+    sum += isEq[i];
+  }
+  count <== sum;
 }

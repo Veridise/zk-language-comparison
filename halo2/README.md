@@ -1,6 +1,7 @@
-# ZK Mastermind: Halo2
+# Mastermind (Halo2)
 
-A Halo2 implementation of the initialization and validation of a mastermind game. This uses the halo2-scaffolding to remove the need for some of the boilerplate.
+A Halo2 implementation of the initialization and validation of a mastermind game.
+This uses the halo2-scaffolding to remove the need for some of the boilerplate.
 
 ## Code Structure
 
