@@ -1,6 +1,6 @@
 # ZK Mastermind Examples
 
-This repository contains mplementations of the [Mastermind](https://en.wikipedia.org/wiki/Mastermind_(board_game))
+This repository contains implementations of the [Mastermind](https://en.wikipedia.org/wiki/Mastermind_(board_game))
 game in various zero knowledge (ZK) circuit languages and frameworks.
 
 ## Repository Structure
