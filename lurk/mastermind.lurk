@@ -55,7 +55,13 @@
 !(assert-eq :bad-guess (score-one-turn (hide #0x42 '(1 2 3 4)) 4 6 '(9 2 4 3)))
 
 ;; Actually proving calls to the scoring function
-!(prove (score-one-turn (hide #0x42 '(1 2 3 4)) 4 6 '(0 2 4 3)))
-!(prove (score-one-turn (hide #0x43 '(0 0 0 0)) 4 6 '(1 2 3 4)))
-!(prove (score-one-turn (hide #0x42 '(1 2 3 9)) 4 6 '(0 2 4 3)))
-!(prove (score-one-turn (hide #0x42 '(1 2 3 4)) 4 6 '(9 2 4 3)))
+!(def proof-key-1-2 !(prove (score-one-turn (hide #0x42 '(1 2 3 4)) 4 6 '(0 2 4 3))))
+!(def proof-key-0-0 !(prove (score-one-turn (hide #0x43 '(0 0 0 0)) 4 6 '(1 2 3 4))))
+!(def proof-key-bad-code !(prove (score-one-turn (hide #0x42 '(1 2 3 9)) 4 6 '(0 2 4 3))))
+!(def proof-key-bad-guess !(prove (score-one-turn (hide #0x42 '(1 2 3 4)) 4 6 '(9 2 4 3))))
+
+;; Verifying the proofs by their keys
+!(assert !(verify proof-key-1-2))
+!(assert !(verify proof-key-0-0))
+!(assert !(verify proof-key-bad-code))
+!(assert !(verify proof-key-bad-guess))
