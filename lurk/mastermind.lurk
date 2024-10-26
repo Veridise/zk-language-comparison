@@ -51,12 +51,12 @@
 !(def code-comm-1 (hide !(rand) '(1 2 3 4)))
 !(def code-comm-2 (hide !(rand) '(0 0 0 0)))
 !(def code-comm-3 (hide !(rand) '(1 2 3 9)))
+
 ;; Tests to show that the implementation behaves as expected.
 !(assert-eq '(1 . 2) (score-one-turn code-comm-1 4 6 '(0 2 4 3)))
 !(assert-eq '(0 . 0) (score-one-turn code-comm-2 4 6 '(1 2 3 4)))
 !(assert-eq :bad-code (score-one-turn code-comm-3 4 6 '(0 2 4 3)))
 !(assert-eq :bad-guess (score-one-turn code-comm-1 4 6 '(9 2 4 3)))
-
 
 ;; Actually proving calls to the scoring function
 !(def proof-key-1-2 !(prove (score-one-turn code-comm-1 4 6 '(0 2 4 3))))
