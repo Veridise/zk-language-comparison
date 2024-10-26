@@ -12,7 +12,7 @@ those proofs.
 ### Prerequisites
 Install Lurk:
 ```
-cargo install loam --locked --git https://github.com/argumentcomputer/lurk --rev 058396e
+cargo install loam --locked --git https://github.com/argumentcomputer/lurk --rev 417d5da
 ```
 
 NOTE: it may be necessary to update rust (`rustup update`) in order for the installation to succeed.

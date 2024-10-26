@@ -47,18 +47,22 @@
                                 :bad-guess)
                             :bad-code)))
 
-;; Tests just to show that the implementation behaves as expected.
-;; Note that #0x42 and #0x43 are weak secrets and could easily be brute-forced by a naive algorithm.
-!(assert-eq '(1 . 2) (score-one-turn (hide #0x42 '(1 2 3 4)) 4 6 '(0 2 4 3)))
-!(assert-eq '(0 . 0) (score-one-turn (hide #0x43 '(0 0 0 0)) 4 6 '(1 2 3 4)))
-!(assert-eq :bad-code (score-one-turn (hide #0x42 '(1 2 3 9)) 4 6 '(0 2 4 3)))
-!(assert-eq :bad-guess (score-one-turn (hide #0x42 '(1 2 3 4)) 4 6 '(9 2 4 3)))
+;; Note that !(rand) produces strong secrets that cannot be brute-forced.
+!(def code-comm-1 (hide !(rand) '(1 2 3 4)))
+!(def code-comm-2 (hide !(rand) '(0 0 0 0)))
+!(def code-comm-3 (hide !(rand) '(1 2 3 9)))
+;; Tests to show that the implementation behaves as expected.
+!(assert-eq '(1 . 2) (score-one-turn code-comm-1 4 6 '(0 2 4 3)))
+!(assert-eq '(0 . 0) (score-one-turn code-comm-2 4 6 '(1 2 3 4)))
+!(assert-eq :bad-code (score-one-turn code-comm-3 4 6 '(0 2 4 3)))
+!(assert-eq :bad-guess (score-one-turn code-comm-1 4 6 '(9 2 4 3)))
+
 
 ;; Actually proving calls to the scoring function
-!(def proof-key-1-2 !(prove (score-one-turn (hide #0x42 '(1 2 3 4)) 4 6 '(0 2 4 3))))
-!(def proof-key-0-0 !(prove (score-one-turn (hide #0x43 '(0 0 0 0)) 4 6 '(1 2 3 4))))
-!(def proof-key-bad-code !(prove (score-one-turn (hide #0x42 '(1 2 3 9)) 4 6 '(0 2 4 3))))
-!(def proof-key-bad-guess !(prove (score-one-turn (hide #0x42 '(1 2 3 4)) 4 6 '(9 2 4 3))))
+!(def proof-key-1-2 !(prove (score-one-turn code-comm-1 4 6 '(0 2 4 3))))
+!(def proof-key-0-0 !(prove (score-one-turn code-comm-2 4 6 '(1 2 3 4))))
+!(def proof-key-bad-code !(prove (score-one-turn code-comm-3 4 6 '(0 2 4 3))))
+!(def proof-key-bad-guess !(prove (score-one-turn code-comm-1 4 6 '(9 2 4 3))))
 
 ;; Verifying the proofs by their keys
 !(assert !(verify proof-key-1-2))
