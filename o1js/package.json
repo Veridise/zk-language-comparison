@@ -1,0 +1,35 @@
+{
+  "name": "mastermind",
+  "version": "0.1.0",
+  "description": "",
+  "author": "Shigoto-dev19",
+  "license": "Apache-2.0",
+  "keywords": [
+    "o1js",
+    "ZkProgram",
+    "mastermind"
+  ],
+  "type": "module",
+  "main": "build/src/index.js",
+  "types": "build/src/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "buildw": "tsc --watch",
+    "format": "prettier --write --ignore-unknown **/*",
+    "lint": "npx eslint src/* --fix"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.5.0",
+    "@typescript-eslint/parser": "^5.5.0",
+    "eslint": "^8.7.0",
+    "eslint-plugin-o1js": "^0.4.0",
+    "prettier": "^2.3.2",
+    "typescript": "^5.1"
+  },
+  "peerDependencies": {
+    "o1js": "^2.*"
+  },
+  "engines": {
+    "node": ">=18.14.0"
+  }
+}
