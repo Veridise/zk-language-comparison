@@ -1,3 +1,6 @@
 halo2/target
 halo2/params
 halo2/configs
+
+o1js/node_modules
+o1js/build
