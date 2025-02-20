@@ -1,6 +1,6 @@
 # ZK Mastermind Examples
 
-This repository contains implementations of the [Mastermind](https://en.wikipedia.org/wiki/Mastermind_(board_game))
+This repository contains implementations of the [Mastermind](<https://en.wikipedia.org/wiki/Mastermind_(board_game)>)
 game in various zero knowledge (ZK) circuit languages and frameworks.
 
 ## Repository Structure
@@ -14,6 +14,7 @@ Each directory contains a small README detailing the structure of the implementa
 - Halo2 (`halo2/`)
 - Noir (`noir`)
 - Lurk (`lurk`)
+- O1js (`o1js`)
 
 ## Disclaimer
 
