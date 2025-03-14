@@ -1,0 +1,114 @@
+import poseidon2;
+
+component Pegs<N: Val>(pegs: Array<Val, N>) {
+  for peg : pegs { Reg(peg) }
+}
+
+component Nonce(nonce: Val) {
+  Reg(nonce)
+}
+
+component Lt(a: Val, b: Val) {
+  InRange(0, a, b)
+}
+
+component Le(a: Val, b: Val) {
+  // Overflow safety if b == p-1
+  if (Isz(b + 1)) {
+    1
+  } else {
+    Lt(a, b + 1)
+  }
+}
+
+component Eq(a: Val, b: Val) {
+  Isz(a - b)
+}
+
+component EnsureEq<T: Type>(a: T, b: T) {
+  a = b;
+  r := Eq(a, b);
+  Assert(r);
+  r
+}
+
+component CheckBounds<COLORS: Val, PEGS: Val>(pegs: Pegs<PEGS>) {
+  for peg : pegs {
+    validColor := Lt(peg, COLORS);
+    validColor = 1;
+    Assert(validColor);
+  }
+}
+
+component GenerateCodeHash<N: Val>(nonce: Nonce, pegs: Pegs<N>) {
+  in := for i : 0..N+1 { if (Isz(i)) { nonce } else { pegs[i-1] }};
+  0 // TODO because I have not figured out how to use the components in poseidon2.zir yet
+}
+
+component SetCode<COLORS: Val, PEGS: Val>(nonce: Nonce, pegs: Pegs<PEGS>) {
+  CheckBounds<COLORS, PEGS>(pegs);
+  GenerateCodeHash<PEGS>(nonce, pegs)
+}
+
+component Minimum(a: Val, b: Val) {
+  if (Lt(a, b)) {
+    a
+  } else {
+    b
+  }
+}
+
+component CountColors<N: Val>(pegs: Pegs<N>, color: Val) {
+  reduce for peg : pegs { Eq(peg, color)) } init 0 with Add
+}
+
+component Guess(c: Val, p: Val) {
+  public correct := Reg(c);
+  public partial := Reg(p);
+}
+
+component Pair<Fst: Type, Snd: Type>(_fst: Fst, _snd: Snd) {
+  public fst := _fst;
+  public snd := _snd;
+}
+
+component ZipPegs<N: Val>(lhs: Pegs<N>, rhs: Pegs<N>) {
+  for i : 0..N { Pair<Val, Val>(lhs[i], rhs[i]) }
+}
+
+component MakeGuess<COLORS: Val, PEGS: Val>(nonce: Nonce, pegs: Pegs<PEGS>, hash: Val, guess: Pegs<PEGS>) {
+  CheckBounds<COLORS, PEGS>(guess);
+  code := SetCode<COLORS, PEGS>(nonce, pegs);
+  EnsureEq<Val>(hash, code);
+
+  correct := reduce for p : ZipPegs<PEGS>(pegs, guess) { Eq(p.fst, p.snd) } init 0 with Add;
+  partial := (reduce for c : 0..COLORS {
+    guessCount := CountColors<PEGS>(guess, c);
+    pegsCount := CountColors<PEGS>(pegs, c);
+    Minimum(guessCount, pegsCount)
+  } init 0 with Add) - correct;
+  Guess(correct, partial)
+}
+
+
+component MakeGuessWithChecks<COLORS: Val, PEGS: Val>(nonce: Nonce, pegs: Pegs<PEGS>, hash: Val, guess: Pegs<PEGS>) {
+  guess := MakeGuess<COLORS, PEGS>(nonce, pegs, hash, guess);
+  Assert(Le(guess.correct + guess.partial, PEGS));
+  guess 
+}
+
+test {
+  codemakerNonce := 987654321;
+  codemakerCode := [0, 2, 1, 4]; 
+  codeHash := SetCode<6, 4>(codemakerNonce, codemakerCode);
+    
+  guess1 := [1, 2, 3, 4];
+  result1 := MakeGuessWithChecks<6, 4>(codemakerNonce, codemakerCode, codeHash, guess1);
+  result1.correct = 2;
+  result1.partial = 1;
+
+  guess2 := [0, 2, 1, 4];
+  result2 := MakeGuessWithChecks<6, 4>(codemakerNonce, codemakerCode, codeHash, guess2);
+  result2.correct = 4;
+  result2.partial = 0;
+}
