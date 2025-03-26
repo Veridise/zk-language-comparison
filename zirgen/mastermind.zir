@@ -1,0 +1,147 @@
+import poseidon2;
+
+component Pegs<N: Val>(pegs: Array<Val, N>) {
+  for peg : pegs { Reg(peg) }
+}
+
+component Nonce(nonce: Val) {
+  Reg(nonce)
+}
+
+// Determine if val is zero or not
+component IsZero(val: Val) {
+  // Nondeterministically 'guess' the result
+  isZero := NondetReg(Isz(val));
+
+  // Compute the inverse (for non-zero values), for zero values, Inv returns 0
+  inv := NondetReg(Inv(val));
+
+  // Assert that the result is a bit
+  AssertBit(isZero);
+  // If isZero is 0 (i.e. nonzero) then val must have an inverse
+  val * inv = 1 - isZero;
+  // If isZero is 1, then val must be zero
+  isZero * val = 0;
+  // If isZero is 1, then inv must be zero
+  isZero * inv = 0;
+  // Make the result Return 'isZero'
+  isZero
+}
+
+component Eq(a: Val, b: Val) {
+  IsZero(a - b)
+}
+
+component EnsureEq<T: Type>(a: T, b: T) {
+  a = b;
+  r := Eq(a, b);
+  Assert(Isz(r), "Provided values are not equal");
+  r
+}
+
+component MulReg(lhs: NondetReg, rhs: NondetReg) {
+  NondetReg(lhs * rhs)
+}
+
+component CheckBounds<COLORS: Val, PEGS: Val>(pegs: Pegs<PEGS>) {
+  for peg : pegs {
+    check := Reg(reduce for c :  0..COLORS { NondetReg(c - peg) } init NondetReg(1) with MulReg);
+    check = 0;
+    Assert(check, "Not a valid color");
+  }
+}
+
+// Trivial component to give the hash a type name that is easier to remember.
+component CodeHash(h: Array<Val, 24>) {
+  h
+}
+
+component GenerateCodeHash<N: Val>(nonce: Nonce, pegs: Pegs<N>) {
+  in := for i : 0..24 { 
+    [Isz(i), InRange(1, i, N), InRange(N, i, 24)] -> (
+      nonce,
+      pegs[i-1],
+      0
+    )
+  };
+  stage0 := MultiplyByMExt(in);
+  stage1 := reduce 0..4 init stage0 with DoExtRoundByIdx;
+  stage2 := DoIntRounds(stage1);
+  CodeHash(reduce 0..4 init stage2 with DoExtRoundByIdx)
+}
+
+component SetCode<COLORS: Val, PEGS: Val>(nonce: Nonce, pegs: Pegs<PEGS>) {
+  CheckBounds<COLORS, PEGS>(pegs);
+  GenerateCodeHash<PEGS>(nonce, pegs)
+}
+
+component Minimum(a: Val, b: Val) {
+  if (NondetReg(InRange(0, a, b))) {
+    a
+  } else {
+    b
+  }
+}
+
+component CountColors<N: Val>(pegs: Pegs<N>, color: Val) {
+  reduce for peg : pegs { IsZero(peg - color) } init 0 with Add
+}
+
+component Guess(c: Val, p: Val) {
+  public correct := Reg(c);
+  public partial := Reg(p);
+}
+
+component Pair<Fst: Type, Snd: Type>(_fst: Fst, _snd: Snd) {
+  public fst := _fst;
+  public snd := _snd;
+}
+
+component Zip<Lhs: Type, Rhs: Type, N: Val>(lhs: Array<Lhs, N>, rhs: Array<Rhs, N>) {
+  for i : 0..N { Pair<Lhs, Rhs>(lhs[i], rhs[i]) }
+}
+
+component AssertArrsEq<T: Type, N: Val>(lhs: Array<T, N>, rhs: Array<T, N>) {
+  for p : Zip<T, T, N>(lhs, rhs) {
+    EnsureEq<T>(p.fst, p.snd);
+  }
+}
+
+component MakeGuess<COLORS: Val, PEGS: Val>(nonce: Nonce, pegs: Pegs<PEGS>, hash: CodeHash, guess: Pegs<PEGS>) {
+  CheckBounds<COLORS, PEGS>(guess);
+  code := SetCode<COLORS, PEGS>(nonce, pegs);
+  AssertArrsEq<Val, 24>(hash, code);
+
+  correct := reduce for p : Zip<Val, Val, PEGS>(pegs, guess) { IsZero(p.fst - p.snd) } init 0 with Add;
+  Log("Correct guesses: %u", correct);
+  partial := (reduce for c : 0..COLORS {
+    guessCount := CountColors<PEGS>(guess, c);
+    pegsCount := CountColors<PEGS>(pegs, c);
+    Minimum(guessCount, pegsCount)
+  } init 0 with Add) - correct;
+  Log("Partial guesses: %u", partial);
+  Guess(correct, partial)
+}
+
+
+component MakeGuessWithChecks<COLORS: Val, PEGS: Val>(nonce: Nonce, pegs: Pegs<PEGS>, hash: CodeHash, guess: Pegs<PEGS>) {
+  guess := MakeGuess<COLORS, PEGS>(nonce, pegs, hash, guess);
+  Assert(Isz(InRange(0, guess.correct + guess.partial, PEGS+1)), "Guess check post condition failed");
+  guess 
+}
+
+test Mastermind {
+  codemakerNonce := Nonce(987654321);
+  codemakerCode := Pegs<4>([0, 2, 1, 4]); 
+  codeHash := SetCode<6, 4>(codemakerNonce, codemakerCode);
+    
+  guess1 := Pegs<4>([1, 2, 3, 4]);
+  result1 := MakeGuessWithChecks<6, 4>(codemakerNonce, codemakerCode, codeHash, guess1);
+  result1.correct = 2;
+  result1.partial = 1;
+
+  guess2 := Pegs<4>([0, 2, 1, 4]);
+  result2 := MakeGuessWithChecks<6, 4>(codemakerNonce, codemakerCode, codeHash, guess2);
+  result2.correct = 4;
+  result2.partial = 0;
+}

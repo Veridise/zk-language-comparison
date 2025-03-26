@@ -1,0 +1,19 @@
+// This file contains utilities that work with bits.
+
+// Assert that a given value is a bit
+function AssertBit(val: Val) {
+  val * (1 - val) = 0;
+}
+
+// Set a register nodeterministically, and then verify it is a bit
+component NondetBitReg(val: Val) {
+  reg := NondetReg(val);
+  AssertBit(reg);
+  reg
+}
+
+// Simple bit ops
+// Overrides the builtin version to work specifically with known bit values (i.e., assumes `a` and `b` are bit values)
+component BitAnd(a: Val, b: Val) {
+  a * b
+}
