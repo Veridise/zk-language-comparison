@@ -1,4 +1,4 @@
-// This file contains utilities that work with bits and twits.
+// This file contains utilities that work with bits.
 
 // Assert that a given value is a bit
 function AssertBit(val: Val) {
@@ -13,7 +13,7 @@ component NondetBitReg(val: Val) {
 }
 
 // Simple bit ops
-// Overrides the builtin version
+// Overrides the builtin version to work specifically with known bit values (i.e., assumes `a` and `b` are bit values)
 component BitAnd(a: Val, b: Val) {
   a * b
 }

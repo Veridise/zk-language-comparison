@@ -1,10 +1,13 @@
-# ZIR
+# Zirgen
 
-ZIR is a DSL created by the Risc0 team to support their zkvm. 
+Zirgen is a DSL created by the Risc0 team to support their zkvm. 
 
 ## Building zirgen 
 
-To build with risc0's ZIR frontend (`zirgen`) first clone their repository and then build the tool. To build the tool you will need to install [Bazel](https://bazel.build/) version 6.0.0, which is the required version at the time of writing. If this version number is no longer correct the version declared in the `.bazelversion` file inside the repo prevails. An easy way to manage different bazel versions is with [Bazelisk](https://github.com/bazelbuild/bazelisk). 
+To build with risc0's zirgen frontend (also called `zirgen`), first clone their repository and then build the tool. 
+To build the tool you will need to install [Bazel](https://bazel.build/) version 6.0.0, which is the required version at the time of writing. 
+If this version number is no longer correct the version declared in the `.bazelversion` file inside the repo prevails. 
+An easy way to manage different bazel versions is with [Bazelisk](https://github.com/bazelbuild/bazelisk). 
 
 ```
 git clone https://github.com/risc0/zirgen
