@@ -12,9 +12,10 @@ Each directory contains a small README detailing the structure of the implementa
 - Circom (`circom/`)
 - Gnark (`gnark/`)
 - Halo2 (`halo2/`)
-- Noir (`noir`)
-- Lurk (`lurk`)
-- O1js (`o1js`)
+- Lurk (`lurk/`)
+- Noir (`noir/`)
+- O1js (`o1js/`)
+- Zirgen (`zirgen/`)
 
 ## Disclaimer
 
