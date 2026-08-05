@@ -9,7 +9,7 @@
 
 ### Prerequisites
 
-[Install Nargo](https://noir-lang.org/docs/getting_started_manually#installing-nargo)
+[Install Nargo](https://noir-lang.org/docs/getting_started_manually#installing-nargo) (v1.0.0-beta.1 or newer)
 
 ### Command Line Instructions
 

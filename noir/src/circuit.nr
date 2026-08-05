@@ -1,4 +1,4 @@
-use dep::std::hash::poseidon2;
+use poseidon::poseidon2;
 
 // NCOLORS = 6, NPEGS = 4
 
