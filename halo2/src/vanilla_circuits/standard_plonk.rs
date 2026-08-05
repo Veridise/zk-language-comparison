@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
 use halo2_proofs::{
-    circuit::{Layouter, SimpleFloorPlanner, Value},
     arithmetic::Field,
+    circuit::{Layouter, SimpleFloorPlanner, Value},
     halo2curves::ff::PrimeField,
     plonk::{Advice, Circuit, Column, ConstraintSystem, ErrorFront, Fixed},
     poly::Rotation,
@@ -35,20 +35,33 @@ impl<F: Field> StandardPlonkConfig<F> {
         let _ = [a, b, c].map(|column| meta.enable_equality(column));
 
         // this is the standard PLONK gate
-        meta.create_gate("q_a·a + q_b·b + q_c·c + q_ab·a·b + constant = 0", |meta| {
-            // this gate will be applied AT EVERY ROW
-            // the relative offsets are specified using `Rotation`
+        meta.create_gate(
+            "q_a·a + q_b·b + q_c·c + q_ab·a·b + constant = 0",
+            |meta| {
+                // this gate will be applied AT EVERY ROW
+                // the relative offsets are specified using `Rotation`
 
-            // we `query` for the `Expression` corresponding to the cell entry in a particular column at a relative row offset
-            let [a, b, c] = [a, b, c].map(|column| meta.query_advice(column, Rotation::cur()));
-            let [q_a, q_b, q_c, q_ab, constant] = [q_a, q_b, q_c, q_ab, constant]
-                .map(|column| meta.query_fixed(column, Rotation::cur()));
+                // we `query` for the `Expression` corresponding to the cell entry in a particular column at a relative row offset
+                let [a, b, c] = [a, b, c].map(|column| meta.query_advice(column, Rotation::cur()));
+                let [q_a, q_b, q_c, q_ab, constant] = [q_a, q_b, q_c, q_ab, constant]
+                    .map(|column| meta.query_fixed(column, Rotation::cur()));
 
-            // specify all polynomial expressions that we require to equal zero
-            vec![q_a * a.clone() + q_b * b.clone() + q_c * c + q_ab * a * b + constant]
-        });
+                // specify all polynomial expressions that we require to equal zero
+                vec![q_a * a.clone() + q_b * b.clone() + q_c * c + q_ab * a * b + constant]
+            },
+        );
 
-        StandardPlonkConfig { a, b, c, q_a, q_b, q_c, q_ab, constant, _marker: PhantomData }
+        StandardPlonkConfig {
+            a,
+            b,
+            c,
+            q_a,
+            q_b,
+            q_c,
+            q_ab,
+            constant,
+            _marker: PhantomData,
+        }
     }
 
     // Config is essentially synonymous with Chip, so we want to build some functionality into this Chip if we want
@@ -126,8 +139,12 @@ mod test {
     #[test]
     fn test_standard_plonk() {
         let k = 5;
-        let circuit = StandardPlonk { x: Value::known(Fr::random(OsRng)) };
+        let circuit = StandardPlonk {
+            x: Value::known(Fr::random(OsRng)),
+        };
 
-        MockProver::run(k, &circuit, vec![]).unwrap().assert_satisfied();
+        MockProver::run(k, &circuit, vec![])
+            .unwrap()
+            .assert_satisfied();
     }
 }

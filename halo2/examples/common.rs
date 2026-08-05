@@ -27,8 +27,8 @@ const MAX_COLOR: u64 = 5;
 pub fn assert_pegs_in_range<F: BigPrimeField>(
     range_chip: &RangeChip<F>,
     ctx: &mut Context<F>,
-    pegs: [AssignedValue<F>; 4]) {
-
+    pegs: [AssignedValue<F>; 4],
+) {
     pegs.iter().for_each(|v| {
         range_chip.check_less_than_safe(ctx, *v, MAX_COLOR + 1);
     });

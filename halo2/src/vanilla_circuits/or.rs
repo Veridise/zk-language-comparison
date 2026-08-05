@@ -1,6 +1,6 @@
 use halo2_proofs::{
-    circuit::{Layouter, SimpleFloorPlanner, Value},
     arithmetic::Field,
+    circuit::{Layouter, SimpleFloorPlanner, Value},
     plonk::{Advice, Circuit, Column, ConstraintSystem, ErrorFront, Selector},
     poly::Rotation,
 };
@@ -132,7 +132,11 @@ impl<F: Field> Circuit<F> for OrCircuit<F> {
                     // now a,b are bool
                     let out = a || b;
                     // we return the bool as an F value
-                    if out { F::ONE } else { F::ZERO }
+                    if out {
+                        F::ONE
+                    } else {
+                        F::ZERO
+                    }
                 });
                 // out_val is now type `Value<F>`
                 // we put this in row 2:
@@ -174,8 +178,13 @@ mod test {
     fn test_or() {
         let k = 5;
         // when actually running a circuit, we specialize F to the scalar field of BN254, denoted Fr
-        let circuit = OrCircuit { a: Value::known(Fr::ONE), b: Value::known(Fr::ONE) };
+        let circuit = OrCircuit {
+            a: Value::known(Fr::ONE),
+            b: Value::known(Fr::ONE),
+        };
 
-        MockProver::run(k, &circuit, vec![]).unwrap().assert_satisfied();
+        MockProver::run(k, &circuit, vec![])
+            .unwrap()
+            .assert_satisfied();
     }
 }

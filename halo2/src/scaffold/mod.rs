@@ -52,8 +52,11 @@ pub fn run<T: DeserializeOwned>(
     cli: Cli,
 ) {
     let name = &cli.name;
-    let input_path = PathBuf::from("data")
-        .join(cli.input_path.clone().unwrap_or_else(|| PathBuf::from(format!("{name}.in"))));
+    let input_path = PathBuf::from("data").join(
+        cli.input_path
+            .clone()
+            .unwrap_or_else(|| PathBuf::from(format!("{name}.in"))),
+    );
     let private_inputs: T = serde_json::from_reader(
         File::open(&input_path)
             .unwrap_or_else(|e| panic!("Input file not found at {input_path:?}. {e:?}")),
@@ -82,7 +85,9 @@ pub fn run_on_inputs<T: DeserializeOwned>(
     match cli.command {
         SnarkCmd::Mock => {
             let circuit = precircuit.create_circuit(CircuitBuilderStage::Mock, None, &params);
-            MockProver::run(k, &circuit, circuit.instances()).unwrap().assert_satisfied();
+            MockProver::run(k, &circuit, circuit.instances())
+                .unwrap()
+                .assert_satisfied();
         }
         SnarkCmd::Keygen => {
             let pk_path = data_path.join(PathBuf::from(format!("{name}.pk")));
@@ -102,7 +107,8 @@ pub fn run_on_inputs<T: DeserializeOwned>(
                 File::create(&pk_path)
                     .unwrap_or_else(|_| panic!("Could not create file at {pk_path:?}")),
             );
-            pk.write(&mut pk_file, SerdeFormat::RawBytes).expect("Failed to write proving key");
+            pk.write(&mut pk_file, SerdeFormat::RawBytes)
+                .expect("Failed to write proving key");
             println!("Proving key written to: {pk_path:?}");
 
             let vk_path = data_path.join(PathBuf::from(format!("{name}.vk")));
@@ -154,7 +160,13 @@ pub fn run_on_inputs<T: DeserializeOwned>(
                 _,
                 _,
                 SingleStrategy<'_, Bn256>,
-            >(verifier_params, &vk, strategy, &[&[instance]], &mut transcript)
+            >(
+                verifier_params,
+                &vk,
+                strategy,
+                &[&[instance]],
+                &mut transcript,
+            )
             .unwrap();
             let verification_time = start.elapsed();
             println!("Snark verified successfully in {:?}", verification_time);
@@ -224,15 +236,21 @@ where
         let mut assigned_instances = vec![];
         (self.f)(&mut builder, self.private_inputs, &mut assigned_instances);
         if !assigned_instances.is_empty() {
-            assert_eq!(builder.assigned_instances.len(), 1, "num_instance_columns != 1");
+            assert_eq!(
+                builder.assigned_instances.len(),
+                1,
+                "num_instance_columns != 1"
+            );
             builder.assigned_instances[0] = assigned_instances;
         }
 
         if !stage.witness_gen_only() {
             // now `builder` contains the execution trace, and we are ready to actually create the circuit
             // minimum rows is the number of rows used for blinding factors. This depends on the circuit itself, but we can guess the number and change it if something breaks (default 9 usually works)
-            let minimum_rows =
-                var("MINIMUM_ROWS").unwrap_or_else(|_| "20".to_string()).parse().unwrap();
+            let minimum_rows = var("MINIMUM_ROWS")
+                .unwrap_or_else(|_| "20".to_string())
+                .parse()
+                .unwrap();
             builder.calculate_params(Some(minimum_rows));
         }
 

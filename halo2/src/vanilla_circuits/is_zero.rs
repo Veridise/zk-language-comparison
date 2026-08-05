@@ -1,6 +1,6 @@
 use halo2_proofs::{
-    circuit::{Layouter, SimpleFloorPlanner, Value},
     arithmetic::Field,
+    circuit::{Layouter, SimpleFloorPlanner, Value},
     plonk::{Advice, Circuit, Column, ConstraintSystem, ErrorFront, Expression, Selector},
     poly::Rotation,
 };
@@ -46,10 +46,18 @@ impl IsZeroConfig {
 
             // specify all polynomial expressions that we require to equal zero
             // `Expression` is basically an abstract container for the polynomial corresponding to a column; in particular it can't implement `Copy` so we need to clone it to pass rust ownership rules
-            vec![s.clone() * (xy + out.clone() - Expression::Constant(F::ONE)), s * x * out]
+            vec![
+                s.clone() * (xy + out.clone() - Expression::Constant(F::ONE)),
+                s * x * out,
+            ]
         });
 
-        Self { x, y, out, selector }
+        Self {
+            x,
+            y,
+            out,
+            selector,
+        }
     }
 }
 
@@ -111,15 +119,22 @@ impl<F: Field> Circuit<F> for IsZeroCircuit<F> {
 
                 // We need to compute the witness for y = x == 0 ? 1 : x^{-1}
                 // x.value() is of type `Value<F>` which means it can be either the underlying value or None, which leads to ugly code:
-                let y_val =
-                    x.value().map(|x| if x == &F::ZERO { F::ONE } else { x.invert().unwrap() });
+                let y_val = x.value().map(|x| {
+                    if x == &F::ZERO {
+                        F::ONE
+                    } else {
+                        x.invert().unwrap()
+                    }
+                });
                 // we assign this to the y column in row 0
                 // | row | x      | y     | out | selector |
                 // | 0   | self.x | y_val |     |          |
                 let _y = region.assign_advice(|| "y", config.y, 0, || y_val)?;
 
                 // Entirely separately we can just compute the witness for out = x == 0 ? 1 : 0 the normal way
-                let out_val = x.value().map(|x| if x == &F::ZERO { F::ONE } else { F::ZERO });
+                let out_val = x
+                    .value()
+                    .map(|x| if x == &F::ZERO { F::ONE } else { F::ZERO });
                 // | row | x      | y     | out     | selector |
                 // | 0   | self.x | y_val | out_val |          |
                 let out = region.assign_advice(|| "is_zero out", config.out, 0, || out_val)?;
@@ -160,17 +175,25 @@ mod test {
     fn test_is_zero_zero() {
         let k = 5;
         // when actually running a circuit, we specialize F to the scalar field of BN254, denoted Fr
-        let circuit = IsZeroCircuit { x: Value::known(Fr::from(0)) };
+        let circuit = IsZeroCircuit {
+            x: Value::known(Fr::from(0)),
+        };
 
-        MockProver::run(k, &circuit, vec![]).unwrap().assert_satisfied();
+        MockProver::run(k, &circuit, vec![])
+            .unwrap()
+            .assert_satisfied();
     }
 
     #[test]
     fn test_is_zero_random() {
         let k = 5;
         // when actually running a circuit, we specialize F to the scalar field of BN254, denoted Fr
-        let circuit = IsZeroCircuit { x: Value::known(Fr::random(OsRng)) };
+        let circuit = IsZeroCircuit {
+            x: Value::known(Fr::random(OsRng)),
+        };
 
-        MockProver::run(k, &circuit, vec![]).unwrap().assert_satisfied();
+        MockProver::run(k, &circuit, vec![])
+            .unwrap()
+            .assert_satisfied();
     }
 }

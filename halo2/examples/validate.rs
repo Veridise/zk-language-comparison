@@ -62,13 +62,18 @@ fn codebreaker_validate<F: BigPrimeField>(
     let correct_guesses = GateChip::<F>::default().sum(ctx, equalities);
 
     // Tally the number of partial guesses
-    let min_val = |ctx: &mut Context<F>, a: AssignedValue<F>, b: AssignedValue<F>| -> AssignedValue<F> {
-        let a_less_than_b = range_chip.is_less_than(ctx, a, b, 4);
-        GateChip::<F>::default().select(ctx, a, b, a_less_than_b)
-    };
+    let min_val =
+        |ctx: &mut Context<F>, a: AssignedValue<F>, b: AssignedValue<F>| -> AssignedValue<F> {
+            let a_less_than_b = range_chip.is_less_than(ctx, a, b, 4);
+            GateChip::<F>::default().select(ctx, a, b, a_less_than_b)
+        };
 
-    let count_color = |ctx: &mut Context<F>, pegs: [AssignedValue<F>; 4], color: AssignedValue<F>| -> AssignedValue<F> {
-        let eq_vec: Vec<AssignedValue<F>> = pegs.iter()
+    let count_color = |ctx: &mut Context<F>,
+                       pegs: [AssignedValue<F>; 4],
+                       color: AssignedValue<F>|
+     -> AssignedValue<F> {
+        let eq_vec: Vec<AssignedValue<F>> = pegs
+            .iter()
             .map(|v| GateChip::<F>::default().is_equal(ctx, *v, color))
             .collect();
         GateChip::<F>::default().sum(ctx, eq_vec)
@@ -84,11 +89,8 @@ fn codebreaker_validate<F: BigPrimeField>(
         .collect();
 
     let min_sum = GateChip::<F>::default().sum(ctx, min_vals);
-    let partial_guesses = GateInstructions::sub(
-        &GateChip::<F>::default(),
-        ctx,
-        min_sum,
-        correct_guesses);
+    let partial_guesses =
+        GateInstructions::sub(&GateChip::<F>::default(), ctx, min_sum, correct_guesses);
 
     // Make the values public
     make_public.push(correct_guesses);
