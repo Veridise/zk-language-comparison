@@ -1,7 +1,7 @@
 use halo2_proofs::{
+    arithmetic::Field,
     circuit::{Layouter, SimpleFloorPlanner, Value},
-    halo2curves::FieldExt,
-    plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Selector},
+    plonk::{Advice, Circuit, Column, ConstraintSystem, ErrorFront, Selector},
     poly::Rotation,
 };
 
@@ -21,9 +21,9 @@ pub struct OrConfig {
 // s_i * (a_i + a_{i+1} - a_i * a_{i+1} - a_{i+2}) = 0 for all i
 
 impl OrConfig {
-    // it is standard practice to define everything where numbers are in a generic prime field `F` (`FieldExt` are the traits of a prime field)
+    // it is standard practice to define everything where numbers are in a generic prime field `F` (`Field` are the traits of a prime field)
     // `meta` is provided by the halo2 backend, it is the api for specifying PLONKish arithmetization grid shape + storing circuit constraints in polynomial form
-    pub fn configure<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+    pub fn configure<F: Field>(meta: &mut ConstraintSystem<F>) -> Self {
         // create a single witness column
         let witness = meta.advice_column();
         let selector = meta.selector();
@@ -56,7 +56,7 @@ impl OrConfig {
 // slightly counterintuitive since the ZKCircuit is only created once, but it is then run multiple times with different inputs
 // you should think that during actual ZKCircuit creation, these are just placeholders for the actual inputs
 #[derive(Clone, Default)]
-pub struct OrCircuit<F: FieldExt> {
+pub struct OrCircuit<F: Field> {
     // let's say our circuit wants to compute a | b
     // ASSUME that the values of a,b are both in {0,1}
     pub a: Value<F>, // Value is a wrapper for rust `Option` with some arithmetic operator overloading
@@ -64,7 +64,7 @@ pub struct OrCircuit<F: FieldExt> {
 }
 
 // now we implement the halo2 `Circuit` trait for our struct to actually make it a circuit
-impl<F: FieldExt> Circuit<F> for OrCircuit<F> {
+impl<F: Field> Circuit<F> for OrCircuit<F> {
     type Config = OrConfig; // our earlier config
     type FloorPlanner = SimpleFloorPlanner;
 
@@ -88,7 +88,7 @@ impl<F: FieldExt> Circuit<F> for OrCircuit<F> {
         &self,
         config: Self::Config,
         mut layouter: impl Layouter<F>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), ErrorFront> {
         layouter.assign_region(
             || "Or circuit, only using 1 region",
             |mut region| {
@@ -122,17 +122,21 @@ impl<F: FieldExt> Circuit<F> for OrCircuit<F> {
                 let out_val = a.value().zip(b.value()).map(|(a, b)| {
                     // now a,b are both type &F
                     let [a, b] = [a, b].map(|x| {
-                        if x == &F::one() {
+                        if x == &F::ONE {
                             true
                         } else {
-                            assert_eq!(x, &F::zero()); // this is just an assumption check, not a circuit constraint
+                            assert_eq!(x, &F::ZERO); // this is just an assumption check, not a circuit constraint
                             false
                         }
                     });
                     // now a,b are bool
                     let out = a || b;
                     // we return the bool as an F value
-                    F::from(out)
+                    if out {
+                        F::ONE
+                    } else {
+                        F::ZERO
+                    }
                 });
                 // out_val is now type `Value<F>`
                 // we put this in row 2:
@@ -174,8 +178,13 @@ mod test {
     fn test_or() {
         let k = 5;
         // when actually running a circuit, we specialize F to the scalar field of BN254, denoted Fr
-        let circuit = OrCircuit { a: Value::known(Fr::one()), b: Value::known(Fr::one()) };
+        let circuit = OrCircuit {
+            a: Value::known(Fr::ONE),
+            b: Value::known(Fr::ONE),
+        };
 
-        MockProver::run(k, &circuit, vec![]).unwrap().assert_satisfied();
+        MockProver::run(k, &circuit, vec![])
+            .unwrap()
+            .assert_satisfied();
     }
 }

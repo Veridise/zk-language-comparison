@@ -1,15 +1,16 @@
 use std::marker::PhantomData;
 
 use halo2_proofs::{
+    arithmetic::Field,
     circuit::{Layouter, SimpleFloorPlanner, Value},
-    halo2curves::FieldExt,
-    plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Fixed},
+    halo2curves::ff::PrimeField,
+    plonk::{Advice, Circuit, Column, ConstraintSystem, ErrorFront, Fixed},
     poly::Rotation,
 };
 
 #[derive(Clone, Copy)]
-// it is standard practice to define everything where numbers are in a generic prime field `F` (`FieldExt` are the traits of a prime field)
-pub struct StandardPlonkConfig<F: FieldExt> {
+// it is standard practice to define everything where numbers are in a generic prime field `F` (`Field` are the traits of a prime field)
+pub struct StandardPlonkConfig<F: Field> {
     a: Column<Advice>,
     b: Column<Advice>,
     c: Column<Advice>,
@@ -23,7 +24,7 @@ pub struct StandardPlonkConfig<F: FieldExt> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> StandardPlonkConfig<F> {
+impl<F: Field> StandardPlonkConfig<F> {
     pub fn configure(meta: &mut ConstraintSystem<F>) -> Self {
         // these are the 3 advice columns
         let [a, b, c] = [(); 3].map(|_| meta.advice_column());
@@ -31,23 +32,36 @@ impl<F: FieldExt> StandardPlonkConfig<F> {
         let [q_a, q_b, q_c, q_ab, constant] = [(); 5].map(|_| meta.fixed_column());
 
         // specify the columns that you may want to impose equality constraints on cells for (this may include fixed columns)
-        [a, b, c].map(|column| meta.enable_equality(column));
+        let _ = [a, b, c].map(|column| meta.enable_equality(column));
 
         // this is the standard PLONK gate
-        meta.create_gate("q_a·a + q_b·b + q_c·c + q_ab·a·b + constant = 0", |meta| {
-            // this gate will be applied AT EVERY ROW
-            // the relative offsets are specified using `Rotation`
+        meta.create_gate(
+            "q_a·a + q_b·b + q_c·c + q_ab·a·b + constant = 0",
+            |meta| {
+                // this gate will be applied AT EVERY ROW
+                // the relative offsets are specified using `Rotation`
 
-            // we `query` for the `Expression` corresponding to the cell entry in a particular column at a relative row offset
-            let [a, b, c] = [a, b, c].map(|column| meta.query_advice(column, Rotation::cur()));
-            let [q_a, q_b, q_c, q_ab, constant] = [q_a, q_b, q_c, q_ab, constant]
-                .map(|column| meta.query_fixed(column, Rotation::cur()));
+                // we `query` for the `Expression` corresponding to the cell entry in a particular column at a relative row offset
+                let [a, b, c] = [a, b, c].map(|column| meta.query_advice(column, Rotation::cur()));
+                let [q_a, q_b, q_c, q_ab, constant] = [q_a, q_b, q_c, q_ab, constant]
+                    .map(|column| meta.query_fixed(column, Rotation::cur()));
 
-            // specify all polynomial expressions that we require to equal zero
-            vec![q_a * a.clone() + q_b * b.clone() + q_c * c + q_ab * a * b + constant]
-        });
+                // specify all polynomial expressions that we require to equal zero
+                vec![q_a * a.clone() + q_b * b.clone() + q_c * c + q_ab * a * b + constant]
+            },
+        );
 
-        StandardPlonkConfig { a, b, c, q_a, q_b, q_c, q_ab, constant, _marker: PhantomData }
+        StandardPlonkConfig {
+            a,
+            b,
+            c,
+            q_a,
+            q_b,
+            q_c,
+            q_ab,
+            constant,
+            _marker: PhantomData,
+        }
     }
 
     // Config is essentially synonymous with Chip, so we want to build some functionality into this Chip if we want
@@ -55,11 +69,11 @@ impl<F: FieldExt> StandardPlonkConfig<F> {
 
 // we use the config to make a circuit:
 #[derive(Clone, Default)]
-pub struct StandardPlonk<F: FieldExt> {
+pub struct StandardPlonk<F: Field> {
     pub x: Value<F>,
 }
 
-impl<F: FieldExt> Circuit<F> for StandardPlonk<F> {
+impl<F: PrimeField> Circuit<F> for StandardPlonk<F> {
     type Config = StandardPlonkConfig<F>;
     type FloorPlanner = SimpleFloorPlanner;
 
@@ -75,7 +89,7 @@ impl<F: FieldExt> Circuit<F> for StandardPlonk<F> {
         &self,
         config: Self::Config,
         mut layouter: impl Layouter<F>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), ErrorFront> {
         layouter.assign_region(
             || "",
             |mut region| {
@@ -94,8 +108,8 @@ impl<F: FieldExt> Circuit<F> for StandardPlonk<F> {
                 x.copy_advice(|| "", &mut region, config.b, 1)?;
                 let val = x.value().map(|x| *x * x);
                 region.assign_advice(|| "", config.c, 1, || val)?;
-                region.assign_fixed(|| "", config.q_c, 1, || Value::known(-F::one()))?;
-                region.assign_fixed(|| "", config.q_ab, 1, || Value::known(F::one()))?;
+                region.assign_fixed(|| "", config.q_c, 1, || Value::known(-F::ONE))?;
+                region.assign_fixed(|| "", config.q_ab, 1, || Value::known(F::ONE))?;
 
                 // x^2 + 72
                 let c = F::from(72);
@@ -103,8 +117,8 @@ impl<F: FieldExt> Circuit<F> for StandardPlonk<F> {
                 x.copy_advice(|| "", &mut region, config.a, 2)?;
                 x.copy_advice(|| "", &mut region, config.b, 2)?;
                 region.assign_advice(|| "", config.c, 2, || val)?;
-                region.assign_fixed(|| "", config.q_c, 2, || Value::known(-F::one()))?;
-                region.assign_fixed(|| "", config.q_ab, 2, || Value::known(F::one()))?;
+                region.assign_fixed(|| "", config.q_c, 2, || Value::known(-F::ONE))?;
+                region.assign_fixed(|| "", config.q_ab, 2, || Value::known(F::ONE))?;
                 region.assign_fixed(|| "", config.constant, 2, || Value::known(c))?;
 
                 Ok(())
@@ -125,8 +139,12 @@ mod test {
     #[test]
     fn test_standard_plonk() {
         let k = 5;
-        let circuit = StandardPlonk { x: Value::known(Fr::random(OsRng)) };
+        let circuit = StandardPlonk {
+            x: Value::known(Fr::random(OsRng)),
+        };
 
-        MockProver::run(k, &circuit, vec![]).unwrap().assert_satisfied();
+        MockProver::run(k, &circuit, vec![])
+            .unwrap()
+            .assert_satisfied();
     }
 }

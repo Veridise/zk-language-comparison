@@ -1,6 +1,6 @@
 use clap::Parser;
-use halo2_base::{gates::circuit::builder::BaseCircuitBuilder, utils::BigPrimeField};
 use halo2_base::AssignedValue;
+use halo2_base::{gates::circuit::builder::BaseCircuitBuilder, utils::BigPrimeField};
 #[allow(unused_imports)]
 use halo2_base::{
     Context,
