@@ -19,9 +19,9 @@
     "lint": "npx eslint src/* --fix"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^5.5.0",
-    "@typescript-eslint/parser": "^5.5.0",
-    "eslint": "^8.7.0",
+    "@typescript-eslint/eslint-plugin": "^8.66.0",
+    "@typescript-eslint/parser": "^8.66.0",
+    "eslint": "^10.8.0",
     "eslint-plugin-o1js": "^0.4.0",
     "prettier": "^2.3.2",
     "typescript": "^5.1"
