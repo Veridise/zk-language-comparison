@@ -1,7 +1,7 @@
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},
-    halo2curves::FieldExt,
-    plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Expression, Selector},
+    arithmetic::Field,
+    plonk::{Advice, Circuit, Column, ConstraintSystem, ErrorFront, Expression, Selector},
     poly::Rotation,
 };
 
@@ -24,9 +24,9 @@ pub struct IsZeroConfig {
 // MUL_0:    s_i * (x_i * out_i) = 0
 
 impl IsZeroConfig {
-    // it is standard practice to define everything where numbers are in a generic prime field `F` (`FieldExt` are the traits of a prime field)
+    // it is standard practice to define everything where numbers are in a generic prime field `F` (`Field` are the traits of a prime field)
     // `meta` is provided by the halo2 backend, it is the api for specifying PLONKish arithmetization grid shape + storing circuit constraints in polynomial form
-    pub fn configure<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+    pub fn configure<F: Field>(meta: &mut ConstraintSystem<F>) -> Self {
         let [x, y, out] = [(); 3].map(|_| meta.advice_column());
         let selector = meta.selector();
 
@@ -46,7 +46,7 @@ impl IsZeroConfig {
 
             // specify all polynomial expressions that we require to equal zero
             // `Expression` is basically an abstract container for the polynomial corresponding to a column; in particular it can't implement `Copy` so we need to clone it to pass rust ownership rules
-            vec![s.clone() * (xy + out.clone() - Expression::Constant(F::one())), s * x * out]
+            vec![s.clone() * (xy + out.clone() - Expression::Constant(F::ONE)), s * x * out]
         });
 
         Self { x, y, out, selector }
@@ -58,13 +58,13 @@ impl IsZeroConfig {
 // slightly counterintuitive since the ZKCircuit is only created once, but it is then run multiple times with different inputs
 // you should think that during actual ZKCircuit creation, these are just placeholders for the actual inputs
 #[derive(Clone, Default)]
-pub struct IsZeroCircuit<F: FieldExt> {
+pub struct IsZeroCircuit<F: Field> {
     // let's say our circuit wants to compute x == 0 ? 1 : 0
     pub x: Value<F>, // Value is a wrapper for rust `Option` with some arithmetic operator overloading
 }
 
 // now we implement the halo2 `Circuit` trait for our struct to actually make it a circuit
-impl<F: FieldExt> Circuit<F> for IsZeroCircuit<F> {
+impl<F: Field> Circuit<F> for IsZeroCircuit<F> {
     type Config = IsZeroConfig; // our earlier config
     type FloorPlanner = SimpleFloorPlanner;
 
@@ -88,7 +88,7 @@ impl<F: FieldExt> Circuit<F> for IsZeroCircuit<F> {
         &self,
         config: Self::Config,
         mut layouter: impl Layouter<F>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), ErrorFront> {
         layouter.assign_region(
             || "IsZero circuit, only using 1 region",
             |mut region| {
@@ -112,14 +112,14 @@ impl<F: FieldExt> Circuit<F> for IsZeroCircuit<F> {
                 // We need to compute the witness for y = x == 0 ? 1 : x^{-1}
                 // x.value() is of type `Value<F>` which means it can be either the underlying value or None, which leads to ugly code:
                 let y_val =
-                    x.value().map(|x| if x == &F::zero() { F::one() } else { x.invert().unwrap() });
+                    x.value().map(|x| if x == &F::ZERO { F::ONE } else { x.invert().unwrap() });
                 // we assign this to the y column in row 0
                 // | row | x      | y     | out | selector |
                 // | 0   | self.x | y_val |     |          |
                 let _y = region.assign_advice(|| "y", config.y, 0, || y_val)?;
 
                 // Entirely separately we can just compute the witness for out = x == 0 ? 1 : 0 the normal way
-                let out_val = x.value().map(|x| if x == &F::zero() { F::one() } else { F::zero() });
+                let out_val = x.value().map(|x| if x == &F::ZERO { F::ONE } else { F::ZERO });
                 // | row | x      | y     | out     | selector |
                 // | 0   | self.x | y_val | out_val |          |
                 let out = region.assign_advice(|| "is_zero out", config.out, 0, || out_val)?;
