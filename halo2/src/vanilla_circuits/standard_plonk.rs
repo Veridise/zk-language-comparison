@@ -32,7 +32,7 @@ impl<F: Field> StandardPlonkConfig<F> {
         let [q_a, q_b, q_c, q_ab, constant] = [(); 5].map(|_| meta.fixed_column());
 
         // specify the columns that you may want to impose equality constraints on cells for (this may include fixed columns)
-        [a, b, c].map(|column| meta.enable_equality(column));
+        let _ = [a, b, c].map(|column| meta.enable_equality(column));
 
         // this is the standard PLONK gate
         meta.create_gate("q_a·a + q_b·b + q_c·c + q_ab·a·b + constant = 0", |meta| {

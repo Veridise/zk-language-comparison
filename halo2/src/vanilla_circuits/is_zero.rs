@@ -32,7 +32,7 @@ impl IsZeroConfig {
 
         // specify the columns that you may want to impose equality constraints on cells for (this may include fixed columns)
         // `y` is some internal column that we don't expose, so we probably don't need equality constraints on it
-        [x, out].map(|column| meta.enable_equality(column));
+        let _ = [x, out].map(|column| meta.enable_equality(column));
 
         // we create a single is_zero gate with the two constraints MUL_ADD1 and MUL_0
         meta.create_gate("ISZERO gate", |meta| {
