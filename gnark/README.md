@@ -18,5 +18,5 @@ MacOS (see [here](https://formulae.brew.sh/formula/go) for `brew` instructions).
 ### Command Line Instructions
 
 ```sh
-go test
+go test -v
 ```
