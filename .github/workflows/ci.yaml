@@ -89,8 +89,6 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: circom/package-lock.json
 
       - uses: actions-rust-lang/setup-rust-toolchain@v1
 
@@ -103,12 +101,7 @@ jobs:
           cargo install --path ./iden3-circom/circom
 
       - name: Install dependencies
-        run: |
-          if [ -f circom/package-lock.json ]; then
-            npm ci
-          else
-            npm install snarkjs circomlib
-          fi
+        run: npm install snarkjs circomlib
 
       - name: Compile circuit
         run: circom mastermind.circom --r1cs --wasm --sym
