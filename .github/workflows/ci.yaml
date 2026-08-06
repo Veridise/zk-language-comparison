@@ -35,28 +35,28 @@ jobs:
           filters: |
             arkworks:
               - 'arkworks/**'
-              - '.github/workflows/ci.yml'
+              - '.github/workflows/ci.yaml'
             circom:
               - 'circom/**'
-              - '.github/workflows/ci.yml'
+              - '.github/workflows/ci.yaml'
             gnark:
               - 'gnark/**'
-              - '.github/workflows/ci.yml'
+              - '.github/workflows/ci.yaml'
             halo2:
               - 'halo2/**'
-              - '.github/workflows/ci.yml'
+              - '.github/workflows/ci.yaml'
             lurk:
               - 'lurk/**'
-              - '.github/workflows/ci.yml'
+              - '.github/workflows/ci.yaml'
             noir:
               - 'noir/**'
-              - '.github/workflows/ci.yml'
+              - '.github/workflows/ci.yaml'
             o1js:
               - 'o1js/**'
-              - '.github/workflows/ci.yml'
+              - '.github/workflows/ci.yaml'
             zirgen:
               - 'zirgen/**'
-              - '.github/workflows/ci.yml'
+              - '.github/workflows/ci.yaml'
 
   arkworks:
     name: Arkworks
