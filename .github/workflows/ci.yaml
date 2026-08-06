@@ -88,7 +88,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: circom/package-lock.json
 
@@ -96,19 +96,20 @@ jobs:
 
       - name: Install Circom
         run: |
-          git clone --depth 1 https://github.com/iden3/circom.git /tmp/circom
-          cargo install --path /tmp/circom/circom
+          git clone --depth 1 https://github.com/iden3/circom.git ./iden3-circom
+          cargo build --release --manifest-path ./iden3-circom/Cargo.toml
+          cargo install --path ./iden3-circom/circom
 
       - name: Install dependencies
         run: |
-          if [ -f package-lock.json ]; then
+          if [ -f circom/package-lock.json ]; then
             npm ci
           else
-            npm install circomlib snarkjs
+            npm install snarkjs circomlib
           fi
 
       - name: Compile circuit
-        run: npx circom mastermind.circom --r1cs --wasm --sym
+        run: circom mastermind.circom --r1cs --wasm --sym
 
       - name: Generate witness
         run: |
