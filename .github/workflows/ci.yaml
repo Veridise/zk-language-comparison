@@ -95,6 +95,8 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Install Circom
+        env:
+          RUSTFLAGS: "-A unused-assignments"
         run: |
           git clone --depth 1 https://github.com/iden3/circom.git ./iden3-circom
           cargo build --release --manifest-path ./iden3-circom/Cargo.toml
