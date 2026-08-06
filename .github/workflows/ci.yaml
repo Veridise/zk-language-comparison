@@ -199,7 +199,7 @@ jobs:
       - name: Install Noir
         uses: noir-lang/noirup@v0.1.4
         with:
-          version: 1.0.0-beta.1
+          toolchain: 1.0.0-beta.1
 
       - run: nargo test
 
