@@ -1,0 +1,256 @@
+name: Project CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changed-projects:
+    name: Detect changed projects
+    runs-on: ubuntu-latest
+    outputs:
+      arkworks: ${{ steps.filter.outputs.arkworks }}
+      circom: ${{ steps.filter.outputs.circom }}
+      gnark: ${{ steps.filter.outputs.gnark }}
+      halo2: ${{ steps.filter.outputs.halo2 }}
+      lurk: ${{ steps.filter.outputs.lurk }}
+      noir: ${{ steps.filter.outputs.noir }}
+      o1js: ${{ steps.filter.outputs.o1js }}
+      zirgen: ${{ steps.filter.outputs.zirgen }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            arkworks:
+              - 'arkworks/**'
+              - '.github/workflows/ci.yaml'
+            circom:
+              - 'circom/**'
+              - '.github/workflows/ci.yaml'
+            gnark:
+              - 'gnark/**'
+              - '.github/workflows/ci.yaml'
+            halo2:
+              - 'halo2/**'
+              - '.github/workflows/ci.yaml'
+            lurk:
+              - 'lurk/**'
+              - '.github/workflows/ci.yaml'
+            noir:
+              - 'noir/**'
+              - '.github/workflows/ci.yaml'
+            o1js:
+              - 'o1js/**'
+              - '.github/workflows/ci.yaml'
+            zirgen:
+              - 'zirgen/**'
+              - '.github/workflows/ci.yaml'
+
+  arkworks:
+    name: Arkworks
+    needs: changed-projects
+    if: needs.changed-projects.outputs.arkworks == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: arkworks
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: arkworks
+      - run: cargo build --locked
+      - run: cargo run --locked
+
+  circom:
+    name: Circom
+    needs: changed-projects
+    if: needs.changed-projects.outputs.circom == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: circom
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Install Circom
+        env:
+          RUSTFLAGS: "-A unused-assignments"
+        run: |
+          git clone --depth 1 https://github.com/iden3/circom.git ./iden3-circom
+          cargo build --release --manifest-path ./iden3-circom/Cargo.toml
+          cargo install --path ./iden3-circom/circom
+
+      - name: Install dependencies
+        run: npm install snarkjs circomlib
+
+      - name: Compile circuit
+        run: circom mastermind.circom --r1cs --wasm --sym
+
+      - name: Generate witness
+        run: |
+          node mastermind_js/generate_witness.js \
+            mastermind_js/mastermind.wasm \
+            examples/input1.json \
+            witness.wtns
+
+      - name: Validate witness
+        run: npx snarkjs wtns check mastermind.r1cs witness.wtns
+
+  gnark:
+    name: Gnark
+    needs: changed-projects
+    if: needs.changed-projects.outputs.gnark == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gnark
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: gnark/go.mod
+          cache-dependency-path: gnark/go.sum
+
+      - run: go test -v ./...
+
+  halo2:
+    name: Halo2
+    needs: changed-projects
+    if: needs.changed-projects.outputs.halo2 == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: halo2
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: halo2
+
+      - name: Run initialization example
+        env:
+          LOOKUP_BITS: 3
+        run: cargo run --locked --example init -- --name init -k 6 mock
+
+      - name: Run validation example
+        env:
+          LOOKUP_BITS: 3
+        run: cargo run --locked --example validate -- --name validate -k 6 mock
+
+  lurk:
+    name: Lurk
+    needs: changed-projects
+    if: needs.changed-projects.outputs.lurk == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lurk
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: lurk
+
+      - name: Install Lurk
+        env:
+          RUSTFLAGS: "-A unpredictable_function_pointer_comparisons"
+        run: |
+          cargo install lurk \
+            --locked \
+            --git https://github.com/argumentcomputer/lurk \
+            --rev 3c7e883
+
+      - run: lurk mastermind.lurk
+
+  noir:
+    name: Noir
+    needs: changed-projects
+    if: needs.changed-projects.outputs.noir == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: noir
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Noir
+        uses: noir-lang/noirup@v0.1.4
+        with:
+          toolchain: 1.0.0-beta.1
+
+      - run: nargo test
+
+  o1js:
+    name: o1js
+    needs: changed-projects
+    if: needs.changed-projects.outputs.o1js == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: o1js
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: o1js/package-lock.json
+
+      - run: npm ci
+      - run: npm run build
+      - run: node build/src/examples.js
+
+  zirgen:
+    name: Zirgen
+    needs: changed-projects
+    if: needs.changed-projects.outputs.zirgen == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: zirgen
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: bazel-contrib/setup-bazel@0.19.0
+        with:
+          # Avoid downloading Bazel every time.
+          bazelisk-cache: true
+          # Store build cache per workflow.
+          disk-cache: ${{ github.workflow }}
+          # Share repository cache between workflows.
+          repository-cache: true
+
+      - name: Build Zirgen
+        working-directory: ${{ runner.temp }}
+        run: |
+          git clone --depth 1 https://github.com/risc0/zirgen.git ./risc0-zirgen
+          cd risc0-zirgen
+          bazelisk build //zirgen/dsl:zirgen
+          cp bazel-bin/zirgen/dsl/zirgen "${RUNNER_TEMP}/zirgen-bin"
+
+      - name: Run Zirgen tests
+        run: "${RUNNER_TEMP}/zirgen-bin mastermind.zir --test"

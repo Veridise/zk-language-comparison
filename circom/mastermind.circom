@@ -3,7 +3,7 @@ pragma circom 2.1.8;
 include "common.circom";
 include "./node_modules/circomlib/circuits/comparators.circom";
 include "./node_modules/circomlib/circuits/gates.circom";
-include "./node_modules/circomlib/circuits/Mux1.circom";
+include "./node_modules/circomlib/circuits/mux1.circom";
 
 /*
   Validate that the code is legal.
